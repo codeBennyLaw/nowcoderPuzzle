@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>牛客娘拼图大作战</title>
+    <link rel="preload" as="fetch" href="img/manifest.json" crossorigin="anonymous">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <header class="app-header">
+        <h1>拼图游戏</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label>模式：</label>
+                <label><input type="radio" name="mode" value="classic" checked> 经典拖拽</label>
+                <label><input type="radio" name="mode" value="sliding"> 滑块拼图</label>
+            </div>
+            <div class="control-group" id="difficultyGroup">
+                <label for="difficulty">难度：</label>
+                <select id="difficulty">
+                    <option value="3">3 × 3</option>
+                    <option value="4">4 × 4</option>
+                    <option value="5">5 × 5</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="imageSelect">图片：</label>
+                <button id="prevImage" title="上一张">◀</button>
+                <select id="imageSelect"></select>
+                <button id="nextImage" title="下一张">▶</button>
+            </div>
+            <div class="control-group">
+                <button id="toggleOriginal">查看完整原图</button>
+                <button id="restart">重新开始</button>
+            </div>
+            <div class="control-group">
+                <label><input type="checkbox" id="timerToggle" /> 计时</label>
+                <span id="timeDisplay">00:00</span>
+                <span id="stepDisplay">步数：0</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <div id="boardWrapper">
+            <div id="board" class="board" aria-label="拼图棋盘"></div>
+        </div>
+    </main>
+
+    <div id="originalOverlay" class="overlay" hidden>
+        <div class="overlay-content">
+            <img id="originalImage" alt="原图预览" />
+            <button id="closeOverlay" class="close-btn">关闭</button>
+        </div>
+    </div>
+
+    <div id="completeToast" class="toast" hidden>
+        完成拼图！
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
