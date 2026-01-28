@@ -5,8 +5,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>牛客娘拼图大作战</title>
-    <link rel="preload" as="fetch" href="img/manifest.json" crossorigin="anonymous">
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="preload" as="fetch" href="assets/images/puzzle/manifest.json" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/styles.css" />
 </head>
 
 <body>
@@ -33,7 +33,6 @@
                 <button id="nextImage" title="下一张">▶</button>
             </div>
             <div class="control-group">
-                <button id="toggleOriginal">查看完整原图</button>
                 <button id="restart">重新开始</button>
             </div>
             <div class="control-group">
@@ -50,18 +49,31 @@
         </div>
     </main>
 
-    <div id="originalOverlay" class="overlay" hidden>
-        <div class="overlay-content">
-            <img id="originalImage" alt="原图预览" />
-            <button id="closeOverlay" class="close-btn">关闭</button>
+    <!-- 右下角悬浮窗口（随机 GIF，不可关闭） -->
+    <div id="floatBox" class="float-box" aria-label="趣味悬浮图">
+        <img id="floatGif" alt="悬浮动图" decoding="async" />
+    </div>
+
+    <!-- 完成弹窗（展示 ac.png 并播放 ac.wav） -->
+    <div id="acModal" class="modal" hidden>
+        <div class="modal-content">
+            <button id="acClose" class="modal-close" aria-label="关闭">×</button>
+            <img id="acImage" alt="通关奖励" loading="lazy" decoding="async" />
+            <div class="modal-actions">
+                <button id="viewOriginal">查看原图</button>
+            </div>
         </div>
     </div>
 
-    <div id="completeToast" class="toast" hidden>
-        完成拼图！
-    </div>
+    <footer class="app-footer" aria-label="页脚">
+        <div class="footer-line">
+            <a class="github-btn" href="https://github.com/codeBennyLaw/nowcoderPuzzle" target="_blank"
+                rel="noopener">GitHub</a>
+        </div>
+        <div class="footer-line">Powered by AliLexiWalker&GPT5</div>
+    </footer>
 
-    <script src="script.js"></script>
+    <script src="js/script.js"></script>
 </body>
 
 </html>

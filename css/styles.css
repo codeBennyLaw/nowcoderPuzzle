@@ -38,18 +38,31 @@ button:hover{border-color:var(--accent)}
 .board.sliding .tile{transition:transform .12s ease}
 
 /* Overlay */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center}
-.overlay[hidden]{display:none}
-.overlay-content{position:relative;background:#0c0f17;border:1px solid #293148;border-radius:12px;padding:12px}
-.overlay-content img{max-width:min(92vw,80vh);max-height:min(92vh,80vw);border-radius:8px;display:block}
-.close-btn{position:absolute;right:10px;top:10px}
+/* 完成弹窗 */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center}
+.modal[hidden]{display:none}
+.modal-content{position:relative;background:#0c0f17;border:1px solid #293148;border-radius:12px;padding:12px;max-width:min(92vw,640px)}
+.modal-content img{max-width:100%;border-radius:8px;display:block}
+.modal-close{position:absolute;right:10px;top:10px;background:var(--danger);color:#fff;border:1px solid #d44d4d;border-radius:999px;padding:4px 12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);font-weight:600;font-size:16px}
+.modal-close:hover{filter:brightness(1.08);border-color:#ff8f8f}
+.modal-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.modal-actions button{background:#0f1320;color:var(--text);border:1px solid #293148;border-radius:8px;padding:6px 10px}
 
-/* Toast */
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#10201a;color:#dff6e6;border:1px solid #264e3f;padding:10px 14px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.35)}
-.toast[hidden]{display:none}
+/* 完成后禁用棋盘交互 */
+.board.disabled{pointer-events:none}
 
 /* Responsive tweaks */
 @media (max-width:640px){
   .controls{gap:6px}
   .control-group{flex-wrap:wrap}
 }
+
+/* 右下角悬浮窗口 */
+.float-box{position:fixed;right:16px;bottom:16px;z-index:8;background:var(--panel);border:1px solid #293148;border-radius:12px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.float-box img{display:block;max-width:180px;max-height:180px;border-radius:8px}
+
+/* 页脚 */
+.app-footer{margin:24px auto 16px;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted)}
+.github-btn{background:#0f1320;color:var(--text);border:1px solid #293148;border-radius:8px;padding:6px 12px;text-decoration:none}
+.github-btn:hover{border-color:var(--accent)}

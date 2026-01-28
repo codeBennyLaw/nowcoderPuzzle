@@ -19,11 +19,13 @@
     const timerToggle = document.getElementById('timerToggle');
     const timeDisplay = document.getElementById('timeDisplay');
     const stepDisplay = document.getElementById('stepDisplay');
-    const toggleOriginalBtn = document.getElementById('toggleOriginal');
-    const overlay = document.getElementById('originalOverlay');
-    const overlayImg = document.getElementById('originalImage');
-    const closeOverlayBtn = document.getElementById('closeOverlay');
+    const acModal = document.getElementById('acModal');
+    const acImage = document.getElementById('acImage');
+    const acClose = document.getElementById('acClose');
+    const viewOriginalBtn = document.getElementById('viewOriginal');
     const difficultyGroup = document.getElementById('difficultyGroup');
+    const floatBox = document.getElementById('floatBox');
+    const floatGif = document.getElementById('floatGif');
     const toast = document.getElementById('completeToast');
 
     // State
@@ -44,23 +46,64 @@
         dragging: null,
         sliding: {
             emptyCell: 8 // index 0..8 (3x3)
-        }
+        },
+        completed: false
     };
+
+    // 统一资源路径：基于页面 baseURI 计算图片目录基路径
+    // 避免硬编码相对路径，适配任意部署子路径或目录结构变更。
+    const IMG_BASE = new URL('assets/images/puzzle/', document.baseURI).href;
+    const FLOAT_BASE = new URL('assets/images/float/', document.baseURI).href;
+    const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
+    let acAudio = null;
 
     // Init
     window.addEventListener('resize', onResize);
     init().catch(console.error);
 
     async function init() {
-        // Load manifest
+        // Load puzzle image manifest
         try {
-            const res = await fetch('img/manifest.json', { cache: 'no-store' });
-            const list = await res.json();
-            state.images = list.map(name => `img/${name}`);
+            const manifestUrl = new URL('manifest.json', IMG_BASE).href;
+            const cachedPuzzle = localStorage.getItem('puzzleManifestV2');
+            let list;
+            if (cachedPuzzle) {
+                try { list = JSON.parse(cachedPuzzle); } catch { list = null; }
+            }
+            if (!list) {
+                const res = await fetch(manifestUrl, { cache: 'force-cache' });
+                list = await res.json();
+                try { localStorage.setItem('puzzleManifestV2', JSON.stringify(list)); } catch { }
+            }
+            // 仅保留常见图片格式
+            const filtered = Array.isArray(list) ? list.filter(name => IMAGE_EXT_RE.test(String(name))) : [];
+            state.images = filtered.map(name => new URL(name, IMG_BASE).href);
         } catch (e) {
             // fallback: nothing
             console.warn('读取 manifest 失败，未加载图片列表', e);
             state.images = [];
+        }
+
+        // Load float GIF manifest & pick one with true-random (crypto)
+        try {
+            const floatManifestUrl = new URL('manifest.json', FLOAT_BASE).href;
+            let gifList;
+            const cachedFloat = localStorage.getItem('floatManifestV1');
+            if (cachedFloat) {
+                try { gifList = JSON.parse(cachedFloat); } catch { gifList = null; }
+            }
+            if (!gifList) {
+                const resF = await fetch(floatManifestUrl, { cache: 'force-cache' });
+                gifList = await resF.json();
+                try { localStorage.setItem('floatManifestV1', JSON.stringify(gifList)); } catch { }
+            }
+            gifList = gifList.filter(name => /\.gif$/i.test(name));
+            if (gifList.length > 0) {
+                const idx = secureRandomIndex(gifList.length);
+                floatGif.src = new URL(gifList[idx], FLOAT_BASE).href;
+            }
+        } catch (e) {
+            console.warn('读取浮窗 GIF 清单失败', e);
         }
 
         if (state.images.length === 0) {
@@ -68,6 +111,9 @@
             const svg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="100%" height="100%" fill="#777"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="48" fill="#fff">No Images</text></svg>');
             state.images = [`data:image/svg+xml,${svg}`];
         }
+
+        // 默认随机选择一张图片作为初始拼图
+        state.imageIndex = secureRandomIndex(state.images.length);
 
         // Build image select
         imageSelect.innerHTML = '';
@@ -117,21 +163,25 @@
             }
         });
 
-        toggleOriginalBtn.addEventListener('click', () => {
-            if (overlay.hasAttribute('hidden')) {
-                overlayImg.src = currentImage();
-                overlay.removeAttribute('hidden');
-            } else {
-                overlay.setAttribute('hidden', '');
-            }
+        // 完成弹窗交互：查看原图与关闭
+        viewOriginalBtn.addEventListener('click', () => {
+            const url = currentImage();
+            try { window.open(url, '_blank'); } catch { }
         });
-        closeOverlayBtn.addEventListener('click', () => overlay.setAttribute('hidden', ''));
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.setAttribute('hidden', ''); });
+        acClose.addEventListener('click', () => {
+            acModal.setAttribute('hidden', '');
+        });
 
         // Defaults
         imageSelect.value = String(state.imageIndex);
         state.mode = getSelectedMode();
         state.size = Number(difficultySel.value);
+
+        // 预加载通关音频，提升播放速度
+        try {
+            acAudio = new Audio(new URL('assets/media/ac.wav', document.baseURI).href);
+            acAudio.preload = 'auto';
+        } catch { }
 
         // First render
         resetGame();
@@ -153,21 +203,24 @@
             state.timerStarted = false; timeDisplay.textContent = '00:00';
             cancelAnimationFrame(state.timerRaf);
         }
-        toast.setAttribute('hidden', '');
+        acModal.setAttribute('hidden', '');
+        state.completed = false;
+        board.classList.remove('disabled');
 
         // Clear board
         board.classList.toggle('sliding', state.mode === 'sliding');
         board.innerHTML = '';
         state.tiles = []; state.occupied.clear(); state.dragging = null;
 
-        // Add grid guide
-        renderGridGuide();
-
-        if (state.mode === 'classic') {
-            setupClassic();
-        } else {
-            setupSliding();
-        }
+        // 先预解码当前图片，再渲染棋盘与拼图，避免首屏闪烁
+        preloadImage(currentImage()).then(() => {
+            renderGridGuide();
+            if (state.mode === 'classic') {
+                setupClassic();
+            } else {
+                setupSliding();
+            }
+        });
     }
 
     function onResize() {
@@ -248,6 +301,7 @@
         let dragging = false;
 
         const onDown = (e) => {
+            if (state.completed) return;
             e.preventDefault();
             tile.el.setPointerCapture(e.pointerId);
             dragging = true; state.dragging = tile;
@@ -261,7 +315,7 @@
             if (!dragging) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            tile.el.style.transform = `translate(${dx}px, ${dy}px)`;
+            tile.el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
         };
         const onUp = (e) => {
             if (!dragging) return;
@@ -369,6 +423,7 @@
     }
 
     function onSlidingTileClick(tile, n) {
+        if (state.completed) return;
         const empty = state.sliding.emptyCell;
         if (isAdjacent(tile.cellIndex, empty, n)) {
             // swap with empty
@@ -482,10 +537,32 @@
         return a;
     }
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function secureRandomIndex(n) {
+        try {
+            const u = new Uint32Array(1);
+            crypto.getRandomValues(u);
+            return Number(u[0] % n);
+        } catch {
+            return (Math.random() * n) | 0;
+        }
+    }
+
+    function preloadImage(url) {
+        return new Promise(resolve => {
+            const img = new Image();
+            img.src = url;
+            if (img.decode) {
+                img.decode().then(resolve).catch(resolve);
+            } else {
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+            }
+        });
+    }
 
     // ---------- Complete feedback ----------
     function showComplete() {
-        // 如果开启了计时，完成时暂停并定格时间
+        // 计时停止与定格
         if (state.timerOn && state.timerStarted) {
             cancelAnimationFrame(state.timerRaf);
             state.timerStarted = false;
@@ -496,7 +573,16 @@
             const ss = String(sec % 60).padStart(2, '0');
             timeDisplay.textContent = `${mm}:${ss}`;
         }
-        toast.removeAttribute('hidden');
-        setTimeout(() => { toast.setAttribute('hidden', ''); }, 1600);
+        // 禁用棋盘交互
+        state.completed = true;
+        board.classList.add('disabled');
+
+        // 展示完成弹窗并播放音频
+        acImage.src = new URL('assets/images/ac.png', document.baseURI).href;
+        acModal.removeAttribute('hidden');
+        try {
+            const audio = new Audio(new URL('assets/media/ac.wav', document.baseURI).href);
+            audio.play().catch(() => { });
+        } catch { }
     }
 })();
