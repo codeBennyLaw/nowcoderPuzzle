@@ -1,10 +1,11 @@
 /*
-  拼图游戏 (纯 HTML/CSS/Vanilla JS)
-  功能：
-  - 模式：经典拖拽(3/4/5) 与 滑块(3x3)
-  - 自动读取 img/manifest.json 图片清单；支持切换图片
-  - 查看原图悬浮层；步数统计；可选计时
-  - 触屏与桌面均可用（Pointer Events）
+    拼图游戏（纯 HTML/CSS/JavaScript）
+    当前能力概览：
+    - 模式：经典拖拽（3×3 / 4×4 / 5×5）与滑块拼图（3×3）
+    - 图片：仅加载 JPG/JPEG，来源于 assets/images/puzzle/manifest.json
+    - 交互：步数统计，可选计时；触屏与鼠标统一用 Pointer Events
+    - 通关：锁定棋盘，弹窗展示 ac.jpg 并播放 ac.wav，可「查看原图」
+    - 其他：右下角悬浮随机 GIF（assets/images/float/manifest.json）
 */
 (function () {
     'use strict';
@@ -14,6 +15,7 @@
     const imageSelect = document.getElementById('imageSelect');
     const prevImageBtn = document.getElementById('prevImage');
     const nextImageBtn = document.getElementById('nextImage');
+    const randomImageBtn = document.getElementById('randomImage');
     const difficultySel = document.getElementById('difficulty');
     const restartBtn = document.getElementById('restart');
     const timerToggle = document.getElementById('timerToggle');
@@ -50,22 +52,22 @@
         completed: false
     };
 
-    // 统一资源路径：基于页面 baseURI 计算图片目录基路径
-    // 避免硬编码相对路径，适配任意部署子路径或目录结构变更。
+    // 资源基路径：基于页面 baseURI 计算，避免相对路径在不同部署下失效
     const IMG_BASE = new URL('assets/images/puzzle/', document.baseURI).href;
     const FLOAT_BASE = new URL('assets/images/float/', document.baseURI).href;
-    const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
+    // 仅支持 JPG/JPEG 格式的拼图图片
+    const IMAGE_EXT_RE = /\.jpe?g$/i;
     let acAudio = null;
 
-    // Init
+    // 初始化入口
     window.addEventListener('resize', onResize);
     init().catch(console.error);
 
     async function init() {
-        // Load puzzle image manifest
+        // 读取拼图图片清单（仅 JPG）
         try {
             const manifestUrl = new URL('manifest.json', IMG_BASE).href;
-            const cachedPuzzle = localStorage.getItem('puzzleManifestV2');
+            const cachedPuzzle = localStorage.getItem('puzzleManifestV3');
             let list;
             if (cachedPuzzle) {
                 try { list = JSON.parse(cachedPuzzle); } catch { list = null; }
@@ -73,18 +75,18 @@
             if (!list) {
                 const res = await fetch(manifestUrl, { cache: 'force-cache' });
                 list = await res.json();
-                try { localStorage.setItem('puzzleManifestV2', JSON.stringify(list)); } catch { }
+                try { localStorage.setItem('puzzleManifestV3', JSON.stringify(list)); } catch { }
             }
-            // 仅保留常见图片格式
+            // 仅保留 JPG/JPEG 文件名
             const filtered = Array.isArray(list) ? list.filter(name => IMAGE_EXT_RE.test(String(name))) : [];
             state.images = filtered.map(name => new URL(name, IMG_BASE).href);
         } catch (e) {
-            // fallback: nothing
-            console.warn('读取 manifest 失败，未加载图片列表', e);
+            // 失败时降级为空列表（稍后用占位图）
+            console.warn('读取拼图清单失败，未加载图片列表', e);
             state.images = [];
         }
 
-        // Load float GIF manifest & pick one with true-random (crypto)
+        // 读取浮窗 GIF 清单并用加密随机选择一张
         try {
             const floatManifestUrl = new URL('manifest.json', FLOAT_BASE).href;
             let gifList;
@@ -107,12 +109,12 @@
         }
 
         if (state.images.length === 0) {
-            // Minimal guard: create a placeholder gray image using data URL (not heavy)
+            // 无可用图片时，用轻量 SVG 占位图兜底，避免空白
             const svg = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="100%" height="100%" fill="#777"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="48" fill="#fff">No Images</text></svg>');
             state.images = [`data:image/svg+xml,${svg}`];
         }
 
-        // 默认随机选择一张图片作为初始拼图
+        // 初始图片：真随机选择一张
         state.imageIndex = secureRandomIndex(state.images.length);
 
         // Build image select
@@ -124,7 +126,7 @@
             imageSelect.appendChild(opt);
         });
 
-        // Bind controls
+        // 绑定控件事件
         prevImageBtn.addEventListener('click', () => {
             state.imageIndex = (state.imageIndex - 1 + state.images.length) % state.images.length;
             imageSelect.value = String(state.imageIndex);
@@ -137,6 +139,12 @@
         });
         imageSelect.addEventListener('change', () => {
             state.imageIndex = Number(imageSelect.value);
+            resetGame();
+        });
+
+        randomImageBtn.addEventListener('click', () => {
+            state.imageIndex = secureRandomIndex(state.images.length);
+            imageSelect.value = String(state.imageIndex);
             resetGame();
         });
 
@@ -163,7 +171,7 @@
             }
         });
 
-        // 完成弹窗交互：查看原图与关闭
+        // 弹窗交互：查看原图与关闭
         viewOriginalBtn.addEventListener('click', () => {
             const url = currentImage();
             try { window.open(url, '_blank'); } catch { }
@@ -177,7 +185,7 @@
         state.mode = getSelectedMode();
         state.size = Number(difficultySel.value);
 
-        // 预加载通关音频，提升播放速度
+        // 预加载通关音频，降低首次播放延迟
         try {
             acAudio = new Audio(new URL('assets/media/ac.wav', document.baseURI).href);
             acAudio.preload = 'auto';
@@ -249,7 +257,7 @@
         board.appendChild(guide);
     }
 
-    // ---------- Classic Drag & Drop ----------
+    // ---------- 经典拖拽模式 ----------
     function setupClassic() {
         const n = state.size;
         const total = n * n;
@@ -265,7 +273,7 @@
             el.setAttribute('role', 'button');
             el.setAttribute('aria-label', `拼图块 ${pieceIndex + 1}`);
 
-            // background slicing via background-position and size
+            // 背景切片：通过 background-position/size 显示各块
             el.style.backgroundImage = `url("${img}")`;
             el.style.backgroundSize = `${n * 100}% ${n * 100}%`;
             const pr = Math.floor(pieceIndex / n);
@@ -274,22 +282,22 @@
             const by = (pr / (n - 1)) * 100;
             el.style.backgroundPosition = `${bx}% ${by}%`;
 
-            // numeric label
+            // 角标编号
             const tag = document.createElement('span');
             tag.className = 'label';
             tag.textContent = String(pieceIndex + 1);
             el.appendChild(tag);
 
-            // initial cell
+            // 初始所在格
             const cellIndex = perm[pieceIndex];
             const tile = { el, pieceIndex, cellIndex };
             state.tiles.push(tile);
             state.occupied.set(cellIndex, tile);
 
-            // place
+            // 放置到棋盘
             placeTile(tile, n);
 
-            // pointer handlers for drag
+            // 指针事件：拖拽
             enableDrag(tile, n);
 
             board.appendChild(el);
@@ -301,6 +309,9 @@
         let dragging = false;
 
         const onDown = (e) => {
+            // 移动端限制：仅主指针；已有拖拽时忽略新的按下
+            if (!e.isPrimary) return;
+            if (state.dragging && state.dragging !== tile) return;
             if (state.completed) return;
             e.preventDefault();
             tile.el.setPointerCapture(e.pointerId);
@@ -310,6 +321,8 @@
             const brect = board.getBoundingClientRect();
             originLeft = rect.left - brect.left; originTop = rect.top - brect.top;
             tile.el.classList.add('ghost');
+            // 选中图块置顶
+            tile.el.classList.add('selected');
         };
         const onMove = (e) => {
             if (!dragging) return;
@@ -322,8 +335,9 @@
             dragging = false; state.dragging = null;
             tile.el.releasePointerCapture(e.pointerId);
             tile.el.classList.remove('ghost');
+            tile.el.classList.remove('selected');
 
-            // compute drop position -> nearest cell
+            // 计算释放位置 → 就近单元格
             const brect = board.getBoundingClientRect();
             const endLeft = originLeft + (e.clientX - startX);
             const endTop = originTop + (e.clientY - startY);
@@ -333,7 +347,7 @@
             const r = clamp(Math.round(endTop / cellSize), 0, n - 1);
             const targetCell = r * n + c;
 
-            // swap with occupant or move into empty spot (should always be occupied in classic setup)
+            // 与目标格占用者交换；若为空则直接移动（经典模式通常都已占满）
             if (targetCell === tile.cellIndex) {
                 // no move
                 tile.el.style.transform = '';
@@ -376,7 +390,7 @@
         showComplete();
     }
 
-    // ---------- Sliding Puzzle (3x3) ----------
+    // ---------- 滑块模式（3×3） ----------
     function setupSliding() {
         const n = 3;
         const total = n * n; // 9
@@ -384,10 +398,10 @@
 
         state.cellSize = board.clientWidth / n;
 
-        // create 8 tiles; last is empty
+        // 创建 8 个图块；最后一格为空
         const positions = [...Array(total - 1).keys()]; // 0..7 piece indexes
 
-        // start solved layout
+        // 初始为完成布局
         state.sliding.emptyCell = total - 1;
 
         positions.forEach(pieceIndex => {
@@ -418,7 +432,7 @@
             board.appendChild(el);
         });
 
-        // shuffle with random legal moves to ensure solvable
+        // 通过随机合法移动打乱，保证有解
         shuffleSliding(n, 200);
     }
 
@@ -477,7 +491,7 @@
         return (ar === br && Math.abs(ac - bc) === 1) || (ac === bc && Math.abs(ar - br) === 1);
     }
 
-    // ---------- Layout helpers ----------
+    // ---------- 布局辅助 ----------
     function placeTile(tile, n) {
         const cell = tile.cellIndex;
         const r = Math.floor(cell / n);
@@ -505,7 +519,7 @@
         for (const t of state.tiles) { layoutTile(t, n); }
     }
 
-    // ---------- Steps & Timer ----------
+    // ---------- 计步与计时 ----------
     function tickStepAndMaybeStartTimer() {
         state.steps++; stepDisplay.textContent = `步数：${state.steps}`;
         if (state.timerOn && !state.timerStarted) {
@@ -527,7 +541,7 @@
         }
     }
 
-    // ---------- Utils ----------
+    // ---------- 工具方法 ----------
     function shuffled(arr) {
         const a = arr.slice();
         for (let i = a.length - 1; i > 0; i--) {
@@ -560,9 +574,9 @@
         });
     }
 
-    // ---------- Complete feedback ----------
+    // ---------- 通关反馈 ----------
     function showComplete() {
-        // 计时停止与定格
+        // 停止计时并定格显示
         if (state.timerOn && state.timerStarted) {
             cancelAnimationFrame(state.timerRaf);
             state.timerStarted = false;
@@ -577,8 +591,8 @@
         state.completed = true;
         board.classList.add('disabled');
 
-        // 展示完成弹窗并播放音频
-        acImage.src = new URL('assets/images/ac.png', document.baseURI).href;
+        // 展示弹窗与音频
+        acImage.src = new URL('assets/images/ac.jpg', document.baseURI).href;
         acModal.removeAttribute('hidden');
         try {
             const audio = new Audio(new URL('assets/media/ac.wav', document.baseURI).href);

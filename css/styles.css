@@ -1,68 +1,287 @@
-*{box-sizing:border-box}
-:root{
-  --bg:#0f1115;--panel:#171a21;--muted:#9aa4b2;--text:#e6edf3;--accent:#4aa3ff;--accent-2:#7bd389;--danger:#ff6b6b
+* {
+  box-sizing: border-box;
 }
-html,body{height:100%}
-body{
-  margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --muted: #9aa4b2;
+  --text: #e6edf3;
+  --accent: #4aa3ff;
+  --accent-2: #7bd389;
+  --danger: #ff6b6b;
 }
-.app-header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,rgba(15,17,21,.95),rgba(15,17,21,.85));backdrop-filter:saturate(1.4) blur(6px);border-bottom:1px solid #252a34}
-.app-header h1{margin:0;padding:12px 16px;font-size:18px}
-.controls{display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px 12px}
-.control-group{display:flex;align-items:center;gap:8px;background:var(--panel);padding:6px 8px;border-radius:10px;border:1px solid #222838}
-.control-group label{color:var(--muted)}
-select,button,input[type="checkbox"]{accent-color:var(--accent)}
-select,button{background:#0f1320;color:var(--text);border:1px solid #293148;border-radius:8px;padding:6px 10px}
-button{cursor:pointer}
-button:hover{border-color:var(--accent)}
-#toggleOriginal{background:#0f1320}
-#restart{background:#10201a;border-color:#264e3f}
-#restart:hover{border-color:var(--accent-2)}
-#timeDisplay,#stepDisplay{padding:2px 6px;background:#0e1220;border:1px solid #293148;border-radius:6px}
-
-.app-main{display:flex;justify-content:center;padding:16px}
-#boardWrapper{width:min(92vw,720px)}
-.board{position:relative;width:100%;aspect-ratio:1/1;background:linear-gradient(135deg,#0c0f17,#0b0e15);border:1px solid #293148;border-radius:12px;overflow:hidden}
-
-.tile{position:absolute;user-select:none;touch-action:none;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.35);background-size:100% 100%;
-  background-repeat:no-repeat;cursor:grab;will-change:transform
+html,
+body {
+  height: 100%;
 }
-.tile:active{cursor:grabbing}
-.tile .label{position:absolute;left:6px;top:6px;font-size:.8rem;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.15);color:#e0e6f0}
-.tile.ghost{opacity:.6}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px/1.4 system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    "Apple Color Emoji",
+    "Segoe UI Emoji";
+}
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 17, 21, 0.95),
+    rgba(15, 17, 21, 0.85)
+  );
+  backdrop-filter: saturate(1.4) blur(6px);
+  border-bottom: 1px solid #252a34;
+}
+.app-header h1 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 18px;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid #222838;
+}
+.control-group label {
+  color: var(--muted);
+}
+select,
+button,
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+select,
+button {
+  background: #0f1320;
+  color: var(--text);
+  border: 1px solid #293148;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--accent);
+}
+#toggleOriginal {
+  background: #0f1320;
+}
+#restart {
+  background: #10201a;
+  border-color: #264e3f;
+}
+#restart:hover {
+  border-color: var(--accent-2);
+}
+#timeDisplay,
+#stepDisplay {
+  padding: 2px 6px;
+  background: #0e1220;
+  border: 1px solid #293148;
+  border-radius: 6px;
+}
 
-.grid-guide{position:absolute;inset:0;pointer-events:none}
-.grid-guide .cell{position:absolute;border:1px dashed rgba(255,255,255,.08)}
+.app-main {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+#boardWrapper {
+  width: min(92vw, 720px);
+}
+.board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: linear-gradient(135deg, #0c0f17, #0b0e15);
+  border: 1px solid #293148;
+  border-radius: 12px;
+  overflow: hidden;
+}
 
-/* Sliding mode uses CSS grid placement for simpler layout */
-.board.sliding .tile{transition:transform .12s ease}
+.tile {
+  position: absolute;
+  user-select: none;
+  touch-action: none;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  cursor: grab;
+  will-change: transform;
+}
+.tile {
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  backface-visibility: hidden;
+}
+.tile.selected {
+  z-index: 1000;
+}
+.tile:active {
+  cursor: grabbing;
+}
+.tile .label {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e0e6f0;
+}
+.tile.ghost {
+  opacity: 0.6;
+}
 
-/* Overlay */
-/* 完成弹窗 */
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center}
-.modal[hidden]{display:none}
-.modal-content{position:relative;background:#0c0f17;border:1px solid #293148;border-radius:12px;padding:12px;max-width:min(92vw,640px)}
-.modal-content img{max-width:100%;border-radius:8px;display:block}
-.modal-close{position:absolute;right:10px;top:10px;background:var(--danger);color:#fff;border:1px solid #d44d4d;border-radius:999px;padding:4px 12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);font-weight:600;font-size:16px}
-.modal-close:hover{filter:brightness(1.08);border-color:#ff8f8f}
-.modal-close:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
-.modal-actions button{background:#0f1320;color:var(--text);border:1px solid #293148;border-radius:8px;padding:6px 10px}
+.grid-guide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.grid-guide .cell {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
 
-/* 完成后禁用棋盘交互 */
-.board.disabled{pointer-events:none}
+/* 滑块模式：添加轻微过渡以提升移动观感 */
+.board.sliding .tile {
+  transition: transform 0.12s ease;
+}
+
+/* 通关弹窗覆盖层与内容 */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+}
+.modal[hidden] {
+  display: none;
+}
+.modal-content {
+  position: relative;
+  background: #0c0f17;
+  border: 1px solid #293148;
+  border-radius: 12px;
+  padding: 12px;
+  max-width: min(92vw, 640px);
+}
+.modal-content img {
+  max-width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+.modal-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: var(--danger);
+  color: #fff;
+  border: 1px solid #d44d4d;
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  font-weight: 600;
+  font-size: 16px;
+}
+.modal-close:hover {
+  filter: brightness(1.08);
+  border-color: #ff8f8f;
+}
+.modal-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.modal-actions button {
+  background: #0f1320;
+  color: var(--text);
+  border: 1px solid #293148;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+/* 通关后禁用棋盘交互 */
+.board.disabled {
+  pointer-events: none;
+}
 
 /* Responsive tweaks */
-@media (max-width:640px){
-  .controls{gap:6px}
-  .control-group{flex-wrap:wrap}
+@media (max-width: 640px) {
+  .controls {
+    gap: 6px;
+  }
+  .control-group {
+    flex-wrap: wrap;
+  }
 }
 
-/* 右下角悬浮窗口 */
-.float-box{position:fixed;right:16px;bottom:16px;z-index:8;background:var(--panel);border:1px solid #293148;border-radius:12px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
-.float-box img{display:block;max-width:180px;max-height:180px;border-radius:8px}
+/* 右下角悬浮 GIF 窗口 */
+.float-box {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 8;
+  background: var(--panel);
+  border: 1px solid #293148;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.float-box img {
+  display: block;
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 8px;
+}
 
-/* 页脚 */
-.app-footer{margin:24px auto 16px;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted)}
-.github-btn{background:#0f1320;color:var(--text);border:1px solid #293148;border-radius:8px;padding:6px 12px;text-decoration:none}
-.github-btn:hover{border-color:var(--accent)}
+/* 页脚区域 */
+.app-footer {
+  margin: 24px auto 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.github-btn {
+  background: #0f1320;
+  color: var(--text);
+  border: 1px solid #293148;
+  border-radius: 8px;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+.github-btn:hover {
+  border-color: var(--accent);
+}
