@@ -9,6 +9,12 @@
   --accent: #4aa3ff;
   --accent-2: #7bd389;
   --danger: #ff6b6b;
+  /* 动画系统：统一缓动与时长 */
+  --anim-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --anim-ease-soft: cubic-bezier(0.25, 0.9, 0.2, 1);
+  --anim-fast: 120ms;
+  --anim-med: 180ms;
+  --anim-slow: 260ms;
 }
 html,
 body {
@@ -120,23 +126,49 @@ button:hover {
 
 .tile {
   position: absolute;
+  /* 禁止选中文本，统一触控与鼠标体验 */
+  -webkit-user-select: none;
+  -ms-user-select: none;
   user-select: none;
   touch-action: none;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  /* 移除默认立体阴影，避免相邻块产生高低落差视觉 */
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background-size: 100% 100%;
   background-repeat: no-repeat;
   cursor: grab;
   will-change: transform;
-}
-.tile {
-  -webkit-user-select: none;
-  -ms-user-select: none;
   -webkit-tap-highlight-color: transparent;
   backface-visibility: hidden;
 }
 .tile.selected {
   z-index: 1000;
+}
+.tile.dragging {
+  /* 拖拽态视觉增强 */
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.45);
+}
+.tile.swap-target {
+  /* 拖拽时指针所在图块弹起放大（不包括当前被拖拽图块） */
+  transform: scale(1.06);
+  z-index: 900;
+}
+
+/* 释放并发生交换时的弹起动画（一次性） */
+.tile.swap-pop {
+  animation: swapPop var(--anim-med) var(--anim-ease);
+}
+@keyframes swapPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .tile:active {
   cursor: grabbing;
@@ -166,9 +198,20 @@ button:hover {
   border: 1px dashed rgba(255, 255, 255, 0.08);
 }
 
-/* 滑块模式：添加轻微过渡以提升移动观感 */
+/* 滑块模式：与经典一致，使用 left/top 过渡，避免高低落差视觉 */
 .board.sliding .tile {
-  transition: transform 0.12s ease;
+  transition:
+    left var(--anim-med) var(--anim-ease),
+    top var(--anim-med) var(--anim-ease),
+    transform var(--anim-fast) var(--anim-ease);
+}
+
+/* 经典模式：交换移动更自然（left/top 过渡） */
+.board:not(.sliding) .tile {
+  transition:
+    left var(--anim-med) var(--anim-ease),
+    top var(--anim-med) var(--anim-ease),
+    transform var(--anim-fast) var(--anim-ease);
 }
 
 /* 通关弹窗覆盖层与内容 */
@@ -284,4 +327,16 @@ button:hover {
 }
 .github-btn:hover {
   border-color: var(--accent);
+}
+
+/* 辅助：尊重用户的减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

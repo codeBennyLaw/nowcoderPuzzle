@@ -1,7 +1,7 @@
 /*
     拼图游戏（纯 HTML/CSS/JavaScript）
     当前能力概览：
-    - 模式：经典拖拽（3×3 / 4×4 / 5×5）与滑块拼图（3×3）
+    - 模式：经典拖拽（3×3 / 4×4 / 5×5）与滑块拼图（3×3 / 4×4 / 5×5）
     - 图片：仅加载 JPG/JPEG，来源于 assets/images/puzzle/manifest.json
     - 交互：步数统计，可选计时；触屏与鼠标统一用 Pointer Events
     - 通关：锁定棋盘，弹窗展示 ac.jpg 并播放 ac.wav，可「查看原图」
@@ -29,13 +29,14 @@
     const floatBox = document.getElementById('floatBox');
     const floatGif = document.getElementById('floatGif');
     const toast = document.getElementById('completeToast');
+    let lastSwapTarget = null;
 
     // State
     const state = {
         images: [],
         imageIndex: 0,
         mode: 'classic', // 'classic' | 'sliding'
-        size: 3, // for classic: 3,4,5; sliding fixed to 3
+        size: 3, // 3/4/5：两种模式通用
         steps: 0,
         timerOn: false,
         timerStarted: false,
@@ -47,7 +48,7 @@
         occupied: new Map(), // cellIndex -> tile
         dragging: null,
         sliding: {
-            emptyCell: 8 // index 0..8 (3x3)
+            emptyCell: 0
         },
         completed: false
     };
@@ -151,7 +152,8 @@
         document.querySelectorAll('input[name="mode"]').forEach(r => {
             r.addEventListener('change', () => {
                 state.mode = getSelectedMode();
-                difficultyGroup.style.display = state.mode === 'classic' ? '' : 'none';
+                // 两种模式均支持 3/4/5 难度
+                difficultyGroup.style.display = '';
                 resetGame();
             });
         });
@@ -228,18 +230,21 @@
             } else {
                 setupSliding();
             }
+            // 预解码相邻图片，加速后续切换
+            predecodeNeighbors();
         });
     }
+
 
     function onResize() {
         // Re-lay tiles to new cell size
         if (state.tiles.length === 0) return;
-        state.cellSize = board.clientWidth / (state.mode === 'classic' ? state.size : 3);
+        state.cellSize = board.clientWidth / state.size;
         layoutAllTiles();
     }
 
     function renderGridGuide() {
-        const n = state.mode === 'classic' ? state.size : 3;
+        const n = state.size;
         const guide = document.createElement('div');
         guide.className = 'grid-guide';
         const cell = 100 / n;
@@ -323,12 +328,14 @@
             tile.el.classList.add('ghost');
             // 选中图块置顶
             tile.el.classList.add('selected');
+            tile.el.classList.add('dragging');
         };
         const onMove = (e) => {
             if (!dragging) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             tile.el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+            // 拖拽过程不弹起其他图块，仅在释放并发生交换时强调弹起
         };
         const onUp = (e) => {
             if (!dragging) return;
@@ -336,6 +343,7 @@
             tile.el.releasePointerCapture(e.pointerId);
             tile.el.classList.remove('ghost');
             tile.el.classList.remove('selected');
+            tile.el.classList.remove('dragging');
 
             // 计算释放位置 → 就近单元格
             const brect = board.getBoundingClientRect();
@@ -356,23 +364,34 @@
 
             const occupant = state.occupied.get(targetCell);
             if (occupant) {
-                // swap cells
+                // 交换：拖拽图块从当前指针位置直接“落地”到目标格，被交换图块平滑移动到原格
                 const oldCell = tile.cellIndex;
+                const targetLeftPx = c * cellSize;
+                const targetTopPx = r * cellSize;
                 state.occupied.set(targetCell, tile);
                 state.occupied.set(oldCell, occupant);
                 tile.cellIndex = targetCell;
                 occupant.cellIndex = oldCell;
-                layoutTile(tile, n);
+
+                // 布局被交换图块到原格（left/top 过渡驱动）
                 layoutTile(occupant, n);
+
+                // 拖拽图块直接从视觉位置落地到目标格
+                landFromVisual(tile.el, targetLeftPx, targetTopPx, endLeft, endTop);
+
+                // 弹起反馈
+                popOnce(tile.el);
+                popOnce(occupant.el);
             } else {
-                // move into empty (theoretically none), but handle anyway
+                // 移动到空格：同样从当前视觉位置“落地”到目标格
+                const targetLeftPx = c * cellSize;
+                const targetTopPx = r * cellSize;
                 state.occupied.delete(tile.cellIndex);
                 state.occupied.set(targetCell, tile);
                 tile.cellIndex = targetCell;
-                layoutTile(tile, n);
+                landFromVisual(tile.el, targetLeftPx, targetTopPx, endLeft, endTop);
+                popOnce(tile.el);
             }
-
-            tile.el.style.transform = '';
             tickStepAndMaybeStartTimer();
             checkCompleteClassic(n);
         };
@@ -390,16 +409,16 @@
         showComplete();
     }
 
-    // ---------- 滑块模式（3×3） ----------
+    // ---------- 滑块模式（3×3 / 4×4 / 5×5） ----------
     function setupSliding() {
-        const n = 3;
-        const total = n * n; // 9
+        const n = state.size;
+        const total = n * n;
         const img = currentImage();
 
         state.cellSize = board.clientWidth / n;
 
-        // 创建 8 个图块；最后一格为空
-        const positions = [...Array(total - 1).keys()]; // 0..7 piece indexes
+        // 创建 n*n-1 个图块；最后一格为空
+        const positions = [...Array(total - 1).keys()];
 
         // 初始为完成布局
         state.sliding.emptyCell = total - 1;
@@ -447,6 +466,7 @@
             tile.cellIndex = empty;
             state.sliding.emptyCell = old;
             layoutTile(tile, n);
+            // 使用 left/top 过渡，无需临时阴影类，避免高低落差视觉
             tickStepAndMaybeStartTimer();
             checkCompleteSliding(n);
         }
@@ -515,7 +535,7 @@
     }
 
     function layoutAllTiles() {
-        const n = state.mode === 'classic' ? state.size : 3;
+        const n = state.size;
         for (const t of state.tiles) { layoutTile(t, n); }
     }
 
@@ -572,6 +592,47 @@
                 img.onerror = () => resolve();
             }
         });
+    }
+
+    function popOnce(el) {
+        if (!el) return;
+        el.classList.add('swap-pop');
+        const handler = () => {
+            el.classList.remove('swap-pop');
+            el.removeEventListener('animationend', handler);
+        };
+        el.addEventListener('animationend', handler);
+    }
+
+    // 将元素从当前视觉位置（transform 导致）“落地”到目标 left/top
+    function landFromVisual(el, targetLeftPx, targetTopPx, currentLeftPx, currentTopPx) {
+        if (!el) return;
+        // 仅对 transform 做过渡，避免 left/top 动画导致回跳；统一使用全局动画变量
+        el.style.transition = 'transform var(--anim-fast) var(--anim-ease)';
+        el.style.left = `${targetLeftPx}px`;
+        el.style.top = `${targetTopPx}px`;
+        const offsetX = currentLeftPx - targetLeftPx;
+        const offsetY = currentTopPx - targetTopPx;
+        el.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
+        requestAnimationFrame(() => {
+            el.style.transform = 'translate3d(0, 0, 0)';
+        });
+        const clear = (ev) => {
+            if (ev.propertyName === 'transform') {
+                el.style.transition = '';
+                el.removeEventListener('transitionend', clear);
+            }
+        };
+        el.addEventListener('transitionend', clear);
+    }
+
+    function predecodeNeighbors() {
+        if (!Array.isArray(state.images) || state.images.length < 2) return;
+        const len = state.images.length;
+        const prev = state.images[(state.imageIndex - 1 + len) % len];
+        const next = state.images[(state.imageIndex + 1) % len];
+        preloadImage(prev);
+        preloadImage(next);
     }
 
     // ---------- 通关反馈 ----------
